@@ -54,13 +54,31 @@ namespace cjstores.API.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id_TD,Nombre_TD,Abreviatura")] TipoDocumento tipoDocumento)
+        public async Task<IActionResult> Create(TipoDocumento tipoDocumento)
         {
             if (ModelState.IsValid)
             {
-                _context.Add(tipoDocumento);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+                try
+                {
+                    _context.Add(tipoDocumento);
+                    await _context.SaveChangesAsync();
+                    return RedirectToAction(nameof(Index));
+                }
+                catch (DbUpdateException dbEX) 
+                {
+                    if (dbEX.InnerException.Message.Contains("duplicate"))
+                    {
+                        ModelState.AddModelError(string.Empty, $"Ya existe este tipo de documentos '{tipoDocumento.Nombre_TD} - {tipoDocumento.Abreviatura}'");
+                    }
+                    else
+                    {
+                        ModelState.AddModelError(string.Empty, dbEX.InnerException.Message) ;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ModelState.AddModelError(string.Empty, ex.Message);
+                }
             }
             return View(tipoDocumento);
         }
@@ -86,7 +104,7 @@ namespace cjstores.API.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id_TD,Nombre_TD,Abreviatura")] TipoDocumento tipoDocumento)
+        public async Task<IActionResult> Edit(int id, TipoDocumento tipoDocumento)
         {
             if (id != tipoDocumento.Id_TD)
             {
@@ -100,16 +118,20 @@ namespace cjstores.API.Controllers
                     _context.Update(tipoDocumento);
                     await _context.SaveChangesAsync();
                 }
-                catch (DbUpdateConcurrencyException)
+                catch (DbUpdateException dbEX)
                 {
-                    if (!TipoDocumentoExists(tipoDocumento.Id_TD))
+                    if (dbEX.InnerException.Message.Contains("duplicate"))
                     {
-                        return NotFound();
+                        ModelState.AddModelError(string.Empty, $"Ya existe este tipo de documentos '{tipoDocumento.Nombre_TD} - {tipoDocumento.Abreviatura}'");
                     }
                     else
                     {
-                        throw;
+                        ModelState.AddModelError(string.Empty, dbEX.InnerException.Message);
                     }
+                }
+                catch (Exception ex)
+                {
+                    ModelState.AddModelError(string.Empty, ex.Message);
                 }
                 return RedirectToAction(nameof(Index));
             }
@@ -131,7 +153,10 @@ namespace cjstores.API.Controllers
                 return NotFound();
             }
 
-            return View(tipoDocumento);
+            _context.TipoDocumentos.Remove(tipoDocumento);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(Index));
         }
 
         // POST: TipoDocumentoes/Delete/5
